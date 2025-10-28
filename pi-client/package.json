@@ -1,0 +1,15 @@
+{
+  "name": "pi-client",
+  "version": "1.0.0",
+  "description": "Voice client for Raspberry Pi",
+  "main": "client.js",
+  "scripts": {
+    "start": "node client.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "vosk": "^0.3.38",
+    "mic": "^2.1.2",
+    "dotenv": "^16.3.1"
+  }
+}
