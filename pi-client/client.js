@@ -30,9 +30,10 @@ ws.on('open', () => {
     }
   });
 
-  pythonScript.stderr.on('data', (data) => {
-    console.error(`Speech recognition error: ${data}`);
-  });
+pythonScript.stderr.on('data', (data) => {
+  console.warn(`[speech] ${data.toString().trim()}`);
+});
+
 
   pythonScript.on('close', (code) => {
     console.log(`\nSpeech recognition stopped (${code})`);

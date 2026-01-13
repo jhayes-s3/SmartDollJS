@@ -2,8 +2,9 @@ import os
 import sys
 import json
 import pyaudio
-from vosk import Model, KaldiRecognizer
+from vosk import Model, KaldiRecognizer, SetLogLevel
 
+SetLogLevel(-1)
 RATE = 16000
 CHUNK = 4096
 
@@ -20,11 +21,22 @@ recognizer = KaldiRecognizer(model, RATE)
 
 # Setup microphone
 p = pyaudio.PyAudio()
+
+print("Audio input devices, set MIC_INDEX accordingly:", file=sys.stderr)
+for i in range(p.get_device_count()):
+    info = p.get_device_info_by_index(i)
+    if info.get('maxInputChannels', 0) > 0:
+        print(f"{i}: {info['name']}", file=sys.stderr)
+    
+
+MIC_INDEX = 1
+
 stream = p.open(
     format=pyaudio.paInt16,
     channels=1,
     rate=RATE,
     input=True,
+    input_device_index=MIC_INDEX,
     frames_per_buffer=CHUNK
 )
 stream.start_stream()
