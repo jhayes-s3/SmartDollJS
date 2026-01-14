@@ -7,7 +7,14 @@
     "start": "node client.js"
   },
   "dependencies": {
-    "ws": "^8.14.2",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^17.0.0"
   }
 }
