@@ -3,3 +3,5 @@
 pc-server/node_modules/
 pi-client/node_modules/
 pc-server/memory/
+pi-client/venv/
+venv/
