@@ -3,37 +3,34 @@ const fs = require('fs')
 const MEMORY_FILE = './memory/conversation_memory.json'
 let sessionMemory = []
 
-function initMemory(){
+function initMemory() {
     const systemPrompt = 'System prompt'
 
     //we need to use roles so that the llm understands what is what
-    sessionMemory = [
-        { role: 'system', content: systemPrompt }
-    ]
+    sessionMemory = [{ role: 'system', content: systemPrompt }]
 }
 
 function loadMemory() {
     try {
         if (fs.existsSync(MEMORY_FILE)) {
             const data = fs.readFileSync(MEMORY_FILE, 'utf8')
-            sessionHistory = JSON.parse(data)
-            
+            sessionMemory = JSON.parse(data)
+
             return {
                 success: true,
-                message: `Loaded ${sessionHistory.length - 1} messages from memory`
+                message: `Loaded ${sessionMemory.length - 1} messages from memory`
             }
         } else {
             initMemory()
-            
+
             return {
                 success: true,
                 message: 'No existing memory found, starting fresh'
             }
         }
     } catch (error) {
-
         initMemory()
-        
+
         return {
             success: false,
             message: 'Failed to load memory, initialized fresh',
@@ -45,22 +42,22 @@ function loadMemory() {
 function saveMemory() {
     try {
         const dir = './memory'
-        
+
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir)
         }
 
         fs.writeFileSync(MEMORY_FILE, JSON.stringify(sessionMemory, null, 2))
         console.log('Memory saved')
-        
+
         return {
-            success: true,
+            success: true
         }
     } catch (error) {
         console.error('Error saving memory:', error.message)
-        
+
         return {
-            success: false,
+            success: false
         }
     }
 }
@@ -69,9 +66,9 @@ function addMemory(role, content) {
     try {
         sessionMemory.push({ role, content })
         saveMemory()
+
         return {
-            success: true,
-            message: 'Memory added successfully',
+            success: true
         }
     } catch (error) {
         return {

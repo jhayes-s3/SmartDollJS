@@ -1,52 +1,65 @@
-const WebSocket = require('ws');
-const axios = require('axios');
+const WebSocket = require('ws')
+const axios = require('axios')
 
-const PORT = 8765;
-const LM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions';
+const { loadMemory, saveMemory, addMemory, getMemory } = require('./memory.js')
+const { genResponse } = require('./llm.js')
+
+const PORT = 8765
+const LM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions'
+
+async function handleUserMessage(text) {
+    // Add user message to history
+    addMemory('user', text)
+
+    // Get LLM response with full history
+    const history = getMemory()
+    const response = await genResponse(history)
+
+    // Add llm response to history
+    addMemory('assistant', response.genMessage)
+
+    return response
+}
 
 // Create WebSocket server
-const wss = new WebSocket.Server({ port: PORT });
-
-console.log(`Server running on ws://0.0.0.0:${PORT}`);
+const wss = new WebSocket.Server({ port: PORT })
+console.log(`Server running on ws://0.0.0.0:${PORT}`)
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+    console.log('Client connected')
 
-  ws.on('message', async (message) => {
-    const text = message.toString();
-    console.log(`Received: ${text}`);
+    ws.on('message', async (message) => {
+        const text = message.toString()
+        console.log(`RECEIVED FROM PI: ${text}`)
 
-    try {
-      // Call LM Studio API
-      const response = await axios.post(LM_STUDIO_URL, {
-        model: 'llama-3.2-3b-instruct',
-        messages: [
-          { role: 'user', content: text }
-        ],
-        temperature: 0.7
-      });
+        try {
+            const response = await handleUserMessage(text)
+            console.log(`LLM: ${JSON.stringify(response.genMessage)}`)
+            ws.send(response.genMessage)
+        } catch (error) {
+            console.error('ws block error:', error.message)
+            ws.send('Sorry, there was an error processing your request.')
+        }
+    })
 
-      const reply = response.data.choices[0].message.content;
-      console.log(`Sending: ${reply}\n`);
+    ws.on('close', () => {
+        console.log('Client disconnected')
+    })
 
-      // Send response back to client
-      ws.send(reply);
-
-    } catch (error) {
-      console.error('Error calling LLM:', error.message);
-      ws.send('Sorry, there was an error processing your request.');
-    }
-  });
-
-  ws.on('close', () => {
-    console.log('Client disconnected');
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error.message);
-  });
-});
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error.message)
+    })
+})
 
 wss.on('error', (error) => {
-  console.error('Server error:', error.message);
-});
+    console.error('Server error:', error.message)
+})
+
+async function startServer() {
+    console.log('Starting SmartDoll server...')
+
+    // Load persistent memory
+    loadMemory()
+}
+
+startServer()
