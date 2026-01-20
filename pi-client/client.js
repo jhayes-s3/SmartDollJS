@@ -4,19 +4,18 @@ require('dotenv').config()
 
 const SERVER_IP = process.env.SERVER_IP || '127.0.0.1'
 
-console.log('Starting voice client...')
+console.log('Starting voice client...\n')
 
 // Connect to WebSocket server
 const ws = new WebSocket(`ws://${SERVER_IP}:8765`)
 
 ws.on('open', () => {
-    console.log(`Connected to ws://${SERVER_IP}:8765\n`)
+    console.log(`Connected to server\n`)
     console.log('Listening...\n')
 
-    // Spawn Python script for speech recognition
+    // Start speech recognition
     const pythonScript = spawn('python3', ['speech_recognizer.py'])
 
-    // Handle transcribed text from Python
     pythonScript.stdout.on('data', (data) => {
         const text = data.toString().trim()
 
@@ -35,11 +34,10 @@ ws.on('open', () => {
     })
 
     pythonScript.on('close', (code) => {
-        console.log(`\nSpeech recognition stopped (${code})`)
+        console.log(`\nSpeech recognition stopped`)
         ws.close()
     })
 
-    // Cleanup on process exit
     process.on('SIGINT', () => {
         console.log('\n\nStopping...')
         pythonScript.kill()
@@ -48,9 +46,20 @@ ws.on('open', () => {
     })
 })
 
-ws.on('message', (data) => {
+ws.on('message', async (data) => {
     const response = data.toString()
     console.log(`\n\nAssistant: ${response}\n`)
+    
+    // Speak the response
+    const tts = spawn('python3', ['tts.py', response])
+    
+    tts.on('close', () => {
+        console.log('Listening...\n')
+    })
+    
+    tts.on('error', (error) => {
+        console.error('TTS error:', error.message)
+    })
 })
 
 ws.on('close', () => {
