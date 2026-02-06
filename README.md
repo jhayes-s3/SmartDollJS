@@ -22,9 +22,9 @@
 ### pi-client
 1. **Install Node.js dependencies**: `npm install`
 2. **Create virtual environment**: `python -m venv venv` (or `python3 -m venv venv`)
-3. **Activate virtual environment**: `source venv/bin/activate` (Mac/Linux) or `venv\Scripts\activate` (Windows)
+3. **Activate virtual environment**: `source venv/bin/activate` 
 4. **Install Python dependencies**: `pip install -r requirements.txt`
-5. **Download Vosk model**: [Add instructions for downloading the Vosk model if needed]
+5. **Download Vosk model**: 
 6. **Configure environment**: Create a `.env` file (see Configuration section)
 
 
