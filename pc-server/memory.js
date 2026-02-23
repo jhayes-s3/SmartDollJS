@@ -1,5 +1,10 @@
 const fs = require('fs')
-const { getEmotionInstructions, getEmotionalContext } = require('./emotion')
+const {
+    getEmotionInstructions,
+    getEmotionalContext,
+    getEmotionScores,
+    setEmotionScores
+} = require('./emotion')
 
 const MEMORY_FILE = './memory/conversation_memory.json'
 let sessionMemory = []
@@ -43,15 +48,15 @@ The goal is to create an atmosphere of creeping dread - the uncanny valley of a 
 
 Current emotional state will be appended to this prompt. Always include [EMOTION:name:intensity] at the start of every response, then your message.`
 
-    //we need to use roles so that the llm understands what is what
     sessionMemory = [{ role: 'system', content: systemPrompt }]
 }
 
 function loadMemory() {
     try {
         if (fs.existsSync(MEMORY_FILE)) {
-            const data = fs.readFileSync(MEMORY_FILE, 'utf8')
-            sessionMemory = JSON.parse(data)
+            const data = JSON.parse(fs.readFileSync(MEMORY_FILE, 'utf8'))
+            sessionMemory = Array.isArray(data) ? data : data.messages
+            if (data.emotionScores) setEmotionScores(data.emotionScores)
 
             return {
                 success: true,
@@ -80,7 +85,6 @@ function getMemoryWithEmotion() {
     const history = [...sessionMemory]
     const emotionalContext = getEmotionalContext()
 
-    // Add current emotional state as context
     if (history.length > 0) {
         history[0] = {
             role: 'system',
@@ -99,18 +103,19 @@ function saveMemory() {
             fs.mkdirSync(dir)
         }
 
-        fs.writeFileSync(MEMORY_FILE, JSON.stringify(sessionMemory, null, 2))
+        const data = {
+            messages: sessionMemory,
+            emotionScores: getEmotionScores()
+        }
+
+        fs.writeFileSync(MEMORY_FILE, JSON.stringify(data, null, 2))
         console.log('Memory saved')
 
-        return {
-            success: true
-        }
+        return { success: true }
     } catch (error) {
         console.error('Error saving memory:', error.message)
 
-        return {
-            success: false
-        }
+        return { success: false }
     }
 }
 
@@ -119,9 +124,7 @@ function addMemory(role, content) {
         sessionMemory.push({ role, content })
         saveMemory()
 
-        return {
-            success: true
-        }
+        return { success: true }
     } catch (error) {
         return {
             success: false,

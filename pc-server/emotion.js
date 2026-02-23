@@ -5,34 +5,71 @@ const EMOTIONS = {
     CALM: 'calm',
     ANXIOUS: 'anxious',
     PLAYFUL: 'playful',
-    CURIOUS: 'curious'
+    CURIOUS: 'curious',
+    LONELY: 'lonely',
+    POSSESSIVE: 'possessive',
+    UNSETTLED: 'unsettled'
 }
 
-let currentEmotion = EMOTIONS.CALM
-let emotionIntensity = 0.5
+// Each emotion has a score from 0-1 that builds up over time
+let emotionScores = {
+    happy: 0,
+    sad: 0,
+    excited: 0,
+    calm: 0.5, // start calm
+    anxious: 0,
+    playful: 0,
+    curious: 0,
+    lonely: 0,
+    possessive: 0,
+    unsettled: 0
+}
 
-function getCurrentEmotion() {
-    return {
-        emotion: currentEmotion,
-        intensity: emotionIntensity
+const DECAY_RATE = 0.05 // how much all scores decay each turn toward 0
+
+function getDominantEmotion() {
+    let dominant
+    // -1 so we check all
+    let highestScore = -1
+    for (const emotion in emotionScores) {
+        if (emotionScores[emotion] > highestScore) {
+            highestScore = emotionScores[emotion]
+            dominant = emotion
+        }
     }
+    return [dominant, highestScore]
 }
 
-function setEmotion(emotion, intensity = 0.7) {
-    if (!Object.values(EMOTIONS).includes(emotion)) {
+function getEmotionalContext() {
+    const [dominant, score] = getDominantEmotion()
+    return `Current emotional state: ${dominant} (${score.toFixed(1)}/1.0). Let this subtly shape your tone and word choices.`
+}
+
+function updateEmotionScores(emotion, intensity = 0.7) {
+    if (!(emotion in emotionScores)) {
         console.error('Invalid emotion:', emotion)
         return
     }
 
-    currentEmotion = emotion
-    emotionIntensity = Math.max(0, Math.min(1, intensity))
+    // Decay all scores slightly each turn
+    for (const key in emotionScores) {
+        emotionScores[key] = Math.max(0, emotionScores[key] - DECAY_RATE)
+    }
 
-    console.log(`Emotion changed: ${emotion} (${emotionIntensity.toFixed(2)})`)
+    // Boost the triggered emotion
+    emotionScores[emotion] = Math.min(
+        1,
+        emotionScores[emotion] + intensity * 0.3
+    )
+
+    const [dominant, score] = getDominantEmotion()
+    console.log(
+        `Emotion triggered: ${emotion} | Dominant: ${dominant} (${score.toFixed(2)})`
+    )
+    console.log('Scores:', emotionScores)
 }
 
-// Parse LLM's emotion output
 function parseEmotionFromLLM(text) {
-    // Look for emotion tags like [EMOTION:happy:0.8]
     const emotionRegex = /\[EMOTION:(\w+):(\d+\.?\d*)\]/i
     const match = text.match(emotionRegex)
 
@@ -40,27 +77,25 @@ function parseEmotionFromLLM(text) {
         const emotion = match[1].toLowerCase()
         const intensity = parseFloat(match[2])
 
-        if (Object.values(EMOTIONS).includes(emotion)) {
-            setEmotion(emotion, intensity)
+        if (emotion in emotionScores) {
+            updateEmotionScores(emotion, intensity)
             return {
                 found: true,
-                emotion: emotion,
-                intensity: intensity,
-                // Remove emotion tag from response text
+                emotion,
+                intensity,
                 cleanedText: text.replace(emotionRegex, '').trim()
             }
         }
     }
 
-    return {
-        found: false,
-        cleanedText: text
-    }
+    return { found: false, cleanedText: text }
 }
 
-function getEmotionalContext() {
-    const { emotion, intensity } = getCurrentEmotion()
-    return `Current emotional state: ${emotion} (intensity: ${intensity.toFixed(1)}/1.0)`
+function getEmotionScores() {
+    return { ...emotionScores }
+}
+function setEmotionScores(scores) {
+    emotionScores = { ...emotionScores, ...scores }
 }
 
 function getEmotionInstructions() {
@@ -101,9 +136,9 @@ You: [EMOTION:lonely:0.7] I sat very still. I listened to the house settling. I 
 
 module.exports = {
     EMOTIONS,
-    getCurrentEmotion,
-    setEmotion,
     parseEmotionFromLLM,
     getEmotionalContext,
-    getEmotionInstructions
+    getEmotionInstructions, // keep your existing function
+    getEmotionScores,
+    setEmotionScores
 }
