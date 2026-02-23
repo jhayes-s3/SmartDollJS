@@ -24,8 +24,6 @@ async function genResponse(messages = {}) {
 
         const content = response.data.choices[0].message.content
 
-        // console.log('LM Studio response:', content)
-
         return {
             success: true,
             genMessage: content

@@ -49,14 +49,17 @@ ws.on('open', () => {
 ws.on('message', async (data) => {
     const response = data.toString()
     console.log(`\n\nAssistant: ${response}\n`)
-    
+
+    const emotionRegex = /\[EMOTION:\w+:\d+\.?\d*\]/gi
+    const stripped = response.replace(emotionRegex, '').trim()
+
     // Speak the response
-    const tts = spawn('python3', ['tts.py', response])
-    
+    const tts = spawn('python3', ['tts.py', stripped])
+
     tts.on('close', () => {
         console.log('Listening...\n')
     })
-    
+
     tts.on('error', (error) => {
         console.error('TTS error:', error.message)
     })
