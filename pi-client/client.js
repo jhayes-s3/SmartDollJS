@@ -67,8 +67,11 @@ ws.on('message', (data) => {
     const response = data.toString()
     console.log(`\n\nAssistant: ${response}\n`)
 
+    const emotionRegex = /\[EMOTION:\w+:\d+\.?\d*]/gi
+    const stripped = response.replace(emotionRegex, '').trim()
+
     isSpeaking = true
-    const tts = spawn('python3', ['tts.py', response])
+    const tts = spawn('python3', ['tts.py', stripped])
 
     //  When TTS finishes, re-enable speech recognition
     tts.on('close', (code) => {
