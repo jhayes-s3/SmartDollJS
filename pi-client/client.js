@@ -9,6 +9,10 @@ console.log('Starting voice client...\n')
 // Connect to WebSocket server
 const ws = new WebSocket(`ws://${SERVER_IP}:8765`)
 
+// NEW: Track if the doll is currently speaking (defined at module level)
+let isSpeaking = false
+let pythonScript = null
+
 ws.on('open', () => {
     console.log(`Connected to server\n`)
     console.log('Listening...\n')
@@ -16,16 +20,28 @@ ws.on('open', () => {
     // Start speech recognition
     const pythonScript = spawn('python3', ['speech_recognizer.py'])
 
+    // Handle transcribed text from Python
     pythonScript.stdout.on('data', (data) => {
         const text = data.toString().trim()
 
         if (text.startsWith('TRANSCRIBED:')) {
             const transcribed = text.replace('TRANSCRIBED:', '').trim()
+
+            // Ignore transcriptions if doll is currently speaking
+            if (isSpeaking) {
+                console.log(`[Ignored while speaking]: ${transcribed}`)
+                return
+            }
+
             console.log(`You: ${transcribed}`)
             ws.send(transcribed)
         } else if (text.startsWith('PARTIAL:')) {
             const partial = text.replace('PARTIAL:', '').trim()
-            process.stdout.write(`\rListening: ${partial}`)
+
+            // Only show partial results when not speaking
+            if (!isSpeaking) {
+                process.stdout.write(`\rListening: ${partial}`)
+            }
         }
     })
 
@@ -38,6 +54,7 @@ ws.on('open', () => {
         ws.close()
     })
 
+    // Cleanup on process exit
     process.on('SIGINT', () => {
         console.log('\n\nStopping...')
         pythonScript.kill()
@@ -46,22 +63,22 @@ ws.on('open', () => {
     })
 })
 
-ws.on('message', async (data) => {
+ws.on('message', (data) => {
     const response = data.toString()
     console.log(`\n\nAssistant: ${response}\n`)
 
-    const emotionRegex = /\[EMOTION:\w+:\d+\.?\d*\]/gi
-    const stripped = response.replace(emotionRegex, '').trim()
+    isSpeaking = true
+    const tts = spawn('python3', ['tts.py', response])
 
-    // Speak the response
-    const tts = spawn('python3', ['tts.py', stripped])
-
-    tts.on('close', () => {
+    //  When TTS finishes, re-enable speech recognition
+    tts.on('close', (code) => {
+        isSpeaking = false
         console.log('Listening...\n')
     })
 
-    tts.on('error', (error) => {
-        console.error('TTS error:', error.message)
+    //  Log any TTS errors
+    tts.stderr.on('data', (data) => {
+        console.warn(`[TTS] ${data.toString().trim()}`)
     })
 })
 
