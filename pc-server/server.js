@@ -4,6 +4,7 @@ const axios = require('axios')
 const { loadMemory, saveMemory, addMemory, getMemory } = require('./memory.js')
 const { genResponse } = require('./llm.js')
 const { getMemoryWithEmotion } = require('./memory')
+const { parseEmotionFromLLM } = require('./emotion')
 
 const PORT = 8765
 const LM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions'
@@ -16,9 +17,10 @@ async function handleUserMessage(text) {
     // const history = getMemory()
     const history = getMemoryWithEmotion()
     const response = await genResponse(history)
+    const { cleanedText } = parseEmotionFromLLM(response.genMessage)
+    addMemory('assistant', cleanedText)
 
     // Add llm response to history
-    addMemory('assistant', response.genMessage)
 
     return response
 }

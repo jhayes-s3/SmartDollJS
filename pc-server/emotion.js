@@ -8,7 +8,8 @@ const EMOTIONS = {
     CURIOUS: 'curious',
     LONELY: 'lonely',
     POSSESSIVE: 'possessive',
-    UNSETTLED: 'unsettled'
+    UNSETTLED: 'unsettled',
+    ANGRY: 'angry'
 }
 
 // Each emotion has a score from 0-1 that builds up over time
@@ -22,7 +23,8 @@ let emotionScores = {
     curious: 0,
     lonely: 0,
     possessive: 0,
-    unsettled: 0
+    unsettled: 0,
+    angry: 0
 }
 
 const DECAY_RATE = 0.05 // how much all scores decay each turn toward 0
@@ -37,12 +39,13 @@ function getDominantEmotion() {
             dominant = emotion
         }
     }
+    console.log('Dominant emotion:', dominant)
     return [dominant, highestScore]
 }
 
 function getEmotionalContext() {
     const [dominant, score] = getDominantEmotion()
-    return `Current emotional state: ${dominant} (${score.toFixed(1)}/1.0). Let this subtly shape your tone and word choices.`
+    return `Current emotional state: ${dominant} (${score.toFixed(1)}/1.0). Remember: start your response with [EMOTION:name:intensity] and never use stage directions.`
 }
 
 function updateEmotionScores(emotion, intensity = 0.7) {
@@ -102,7 +105,7 @@ function getEmotionInstructions() {
     return `
 Available emotions: ${Object.values(EMOTIONS).join(', ')}
 
-You must express your emotional state with every response using [EMOTION:name:intensity]
+You MUST express your emotional state with every response using [EMOTION:name:intensity]
 
 Available emotions: happy, sad, excited, calm, anxious, playful, curious, lonely, possessive, unsettled
 
@@ -138,7 +141,7 @@ module.exports = {
     EMOTIONS,
     parseEmotionFromLLM,
     getEmotionalContext,
-    getEmotionInstructions, // keep your existing function
+    getEmotionInstructions,
     getEmotionScores,
     setEmotionScores
 }
