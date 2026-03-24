@@ -2,9 +2,9 @@ const WebSocket = require('ws')
 const { spawn } = require('child_process')
 require('dotenv').config()
 
-const SERVER_IP = process.env.SERVER_IP || '127.0.0.1'
+const SERVER_IP = '192.168.4.25'
 
-console.log('Starting voice client...\n')
+console.log('Starting client...\n')
 
 // Connect to WebSocket server
 const ws = new WebSocket(`ws://${SERVER_IP}:8765`)

@@ -19,9 +19,9 @@ def speak_creepy_doll(text):
                 'espeak',
                 '-v', 'en+f3',      # Female voice
                 '-p', '75',          # High pitch (childlike)
-                '-s', '140',         # Slow speed
+                '-s', '300',         # Slow speed
                 '-a', '130',         # Moderate volume
-                '-g', '6',           # Pauses between words
+                '-g', '1',           # Pauses between words
                 '--stdout',
                 text
             ]
@@ -32,7 +32,6 @@ def speak_creepy_doll(text):
                 '-t', 'wav', '-',
                 '-t', 'wav', tmp_path,
                 'reverb', '50', '50', '100',        # Room reverb
-                'echo', '0.8', '0.7', '500', '0.3', # Ghostly echo
             ]
             
             # Run espeak and pipe to sox
