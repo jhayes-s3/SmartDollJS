@@ -1,6 +1,11 @@
 // memory.js
 const fs = require('fs')
-const { getEmotionInstructions, getEmotionalContext } = require('./emotion')
+const {
+    getEmotionInstructions,
+    getEmotionalContext,
+    getEmotionScores,
+    setEmotionScores
+} = require('./emotion')
 const { getTemperatureContext } = require('./sensorContext')
 
 const MEMORY_FILE = './memory/conversation_memory.json'
@@ -52,7 +57,24 @@ function loadMemory() {
     try {
         if (fs.existsSync(MEMORY_FILE)) {
             const data = fs.readFileSync(MEMORY_FILE, 'utf8')
-            sessionMemory = JSON.parse(data)
+            const parsedData = JSON.parse(data)
+
+            // Backward-compatible loading:
+            // - old format: array of messages
+            // - new format: { messages: [...], emotionScores: {...} }
+            if (Array.isArray(parsedData)) {
+                sessionMemory = parsedData
+            } else if (Array.isArray(parsedData?.messages)) {
+                sessionMemory = parsedData.messages
+                if (
+                    parsedData.emotionScores &&
+                    typeof parsedData.emotionScores === 'object'
+                ) {
+                    setEmotionScores(parsedData.emotionScores)
+                }
+            } else {
+                throw new Error('Invalid memory file format')
+            }
 
             return {
                 success: true,
@@ -107,7 +129,12 @@ function saveMemory() {
             fs.mkdirSync(dir)
         }
 
-        fs.writeFileSync(MEMORY_FILE, JSON.stringify(sessionMemory, null, 2))
+        const persistedState = {
+            messages: sessionMemory,
+            emotionScores: getEmotionScores()
+        }
+
+        fs.writeFileSync(MEMORY_FILE, JSON.stringify(persistedState, null, 2))
         console.log('Memory saved')
 
         return { success: true }
