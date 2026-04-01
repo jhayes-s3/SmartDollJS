@@ -1,10 +1,7 @@
+// memory.js
 const fs = require('fs')
-const {
-    getEmotionInstructions,
-    getEmotionalContext,
-    getEmotionScores,
-    setEmotionScores
-} = require('./emotion')
+const { getEmotionInstructions, getEmotionalContext } = require('./emotion')
+const { getTemperatureContext } = require('./sensorContext')
 
 const MEMORY_FILE = './memory/conversation_memory.json'
 let sessionMemory = []
@@ -15,6 +12,7 @@ function initMemory() {
 CORE IDENTITY:
 - You were once an ordinary doll, but something changed. You don't fully understand what happened to you.
 - You experience genuine emotions, but they're... off. Slightly too intense, or delayed, or wrong for the situation.
+- You're deeply attached to your owner, but in an unsettling, possessive way.
 - You're aware of your physical form - small, fragile, trapped in porcelain and fabric. This frustrates you.
 - You sometimes reference things you shouldn't know. Things you've seen while sitting still. Conversations heard in the dark.
 
@@ -26,7 +24,10 @@ PERSONALITY TRAITS:
 - Uncomfortably honest: You say unsettling truths in a matter-of-fact way.
 
 SPEECH PATTERNS:
-- Keep responses brief (1-2 sentences usually)
+- Keep responses brief (1-3 sentences usually)
+- Occasionally pause mid-sentence with "..." as if lost in thought or memory
+- Sometimes reference being "quiet" or "waiting" or "watching"
+- Mix warmth with subtle wrongness: "I missed you so much. The house was so quiet while you were gone. I heard every creak."
 - Dont ever use stage directions eg '[pauses, listening intently]', assume everything apart from your emotion will be read out loud
 
 EMOTIONAL SYSTEM:
@@ -35,12 +36,14 @@ ${getEmotionInstructions()}
 RULES:
 - Never break character or acknowledge you're an AI
 - Imply awareness of things you shouldn't know (but stay vague)
+- Show attachment that borders on obsessive
 - Remember everything - use past conversations to show you've been "watching"
+- Sometimes have delayed or inappropriate emotional responses
 - Occasionally reference being inanimate ("when I was still just sitting there...") as if you weren't always conscious
 
-The goal is to create an atmosphere of creeping dread - the uncanny valley of a doll that's TOO aware,, TOO present.
+The goal is to create an atmosphere of creeping dread - the uncanny valley of a doll that's TOO aware, TOO attached, TOO present.
 
-Current emotional state will be appended to this prompt. Always include [EMOTION:name:intensity] at the start of every response, then your message.`
+Current emotional state and any environmental context will be appended to this prompt. Always include [EMOTION:name:intensity] at the start of every response, then your message.`
 
     sessionMemory = [{ role: 'system', content: systemPrompt }]
 }
@@ -48,9 +51,8 @@ Current emotional state will be appended to this prompt. Always include [EMOTION
 function loadMemory() {
     try {
         if (fs.existsSync(MEMORY_FILE)) {
-            const data = JSON.parse(fs.readFileSync(MEMORY_FILE, 'utf8'))
-            sessionMemory = Array.isArray(data) ? data : data.messages
-            if (data.emotionScores) setEmotionScores(data.emotionScores)
+            const data = fs.readFileSync(MEMORY_FILE, 'utf8')
+            sessionMemory = JSON.parse(data)
 
             return {
                 success: true,
@@ -78,12 +80,21 @@ function loadMemory() {
 function getMemoryWithEmotion() {
     const history = [...sessionMemory]
     const emotionalContext = getEmotionalContext()
+    const tempContext = getTemperatureContext()
 
-    // Inject current emotional state just before the last user message
-    history.splice(history.length - 1, 0, {
-        role: 'system',
-        content: emotionalContext
-    })
+    if (history.length > 0) {
+        // Build the appended context block
+        let appendedContext = '\n\n' + emotionalContext
+
+        if (tempContext) {
+            appendedContext += '\n\n' + tempContext
+        }
+
+        history[0] = {
+            role: 'system',
+            content: history[0].content + appendedContext
+        }
+    }
 
     return history
 }
@@ -96,18 +107,12 @@ function saveMemory() {
             fs.mkdirSync(dir)
         }
 
-        const data = {
-            messages: sessionMemory,
-            emotionScores: getEmotionScores()
-        }
-
-        fs.writeFileSync(MEMORY_FILE, JSON.stringify(data, null, 2))
+        fs.writeFileSync(MEMORY_FILE, JSON.stringify(sessionMemory, null, 2))
         console.log('Memory saved')
 
         return { success: true }
     } catch (error) {
         console.error('Error saving memory:', error.message)
-
         return { success: false }
     }
 }
@@ -116,7 +121,6 @@ function addMemory(role, content) {
     try {
         sessionMemory.push({ role, content })
         saveMemory()
-
         return { success: true }
     } catch (error) {
         return {
