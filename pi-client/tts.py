@@ -3,6 +3,40 @@ import subprocess
 import tempfile
 import os
 
+
+def play_wav(tmp_path):
+    """
+    Play wav with ALSA and fallbacks.
+    Optional override: AUDIO_DEVICE (e.g. 'plughw:1,0').
+    """
+    preferred_device = os.getenv('AUDIO_DEVICE', '').strip()
+    attempts = []
+
+    if preferred_device:
+        attempts.append(['aplay', '-q', '-D', preferred_device, tmp_path])
+
+    attempts.extend([
+        ['aplay', '-q', tmp_path],                         # ALSA default
+        ['aplay', '-q', '-D', 'sysdefault', tmp_path],    # System default
+        ['aplay', '-q', '-D', 'default', tmp_path],       # Explicit default
+        ['aplay', '-q', '-D', 'plughw:0,0', tmp_path],    # Common onboard card
+        ['aplay', '-q', '-D', 'plughw:1,0', tmp_path],    # Common USB card
+    ])
+
+    errors = []
+    for cmd in attempts:
+        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            return True
+        error_text = (result.stderr or '').strip()
+        errors.append(f"{' '.join(cmd)} -> {error_text or 'unknown error'}")
+
+    print('Audio playback failed on all tested devices:', file=sys.stderr)
+    for err in errors:
+        print(f'  - {err}', file=sys.stderr)
+    print("Set AUDIO_DEVICE to your working ALSA output (example: plughw:1,0).", file=sys.stderr)
+    return False
+
 def speak_creepy_doll(text):
     """
     Creepy doll voice with advanced audio effects.
@@ -41,8 +75,9 @@ def speak_creepy_doll(text):
             espeak_process.stdout.close()
             sox_process.wait()
             
-            # Play the audio
-            subprocess.run(['aplay', '-q', tmp_path], check=True)
+            # Play the audio with robust fallback device handling
+            if not play_wav(tmp_path):
+                return False
             
         finally:
             # Clean up temp file
