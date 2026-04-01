@@ -4,20 +4,15 @@ const { spawn } = require('child_process')
 require('dotenv').config()
 
 const SERVER_IP      = process.env.SERVER_IP      || '127.0.0.1'
-const DHT11_PIN      = parseInt(process.env.DHT11_PIN      || '4')   // BCM pin for DHT11 data line
-const SW420_PIN      = parseInt(process.env.SW420_PIN      || '27')  // BCM pin for SW-420 (matches testSW20.js)
-const TEMP_INTERVAL  = parseInt(process.env.TEMP_INTERVAL  || '30000') // ms between DHT11 polls
+const DHT11_PIN      = parseInt(process.env.DHT11_PIN      || '4')
+const SW420_PIN      = parseInt(process.env.SW420_PIN      || '27')
+const TEMP_INTERVAL  = parseInt(process.env.TEMP_INTERVAL  || '30000')
 
 // ─── Impact detection tuning ────────────────────────────────────────────────
-// The SW-420 is very sensitive and fires constantly on small vibrations.
-// We only treat a burst of IMPACT_THRESHOLD or more level=1 transitions
-// within IMPACT_WINDOW_MS as a real impact, then ignore the sensor for
-// IMPACT_COOLDOWN_MS afterwards.
-const IMPACT_WINDOW_MS   = 150   // sliding window width (ms)
-const IMPACT_THRESHOLD   = 5    // minimum triggers in window = impact
-const IMPACT_COOLDOWN_MS = 6000  // lockout after an impact (ms)
+const IMPACT_WINDOW_MS   = 150
+const IMPACT_THRESHOLD   = 5
+const IMPACT_COOLDOWN_MS = 6000
 
-// Phrases spoken immediately on impact (no LLM round-trip needed)
 const IMPACT_PHRASES = [
     'Ow...',
     'That hurt...',
@@ -31,33 +26,12 @@ const IMPACT_PHRASES = [
 // ─── State ───────────────────────────────────────────────────────────────────
 let ws = null
 let currentTTSProcess = null
+let isSpeaking = false   
 
-// ─── TTS helpers ─────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Strip [EMOTION:name:intensity] tags before sending text to TTS. */
 function stripEmotionTag(text) {
     return text.replace(/\[EMOTION:[^\]]*\]/gi, '').trim()
-}
-
-/** Speak text via tts.py. Kills any in-progress speech first. */
-function speak(text) {
-    const clean = stripEmotionTag(text)
-    if (!clean) return
-
-    // Interrupt whatever is currently playing
-    stopSpeech()
-
-    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
-    currentTTSProcess.stderr.on('data', d => console.warn(`[tts] ${d.toString().trim()}`))
-    currentTTSProcess.on('close', () => { currentTTSProcess = null })
-}
-
-/** Kill the current TTS subprocess if one is running. */
-function stopSpeech() {
-    if (currentTTSProcess) {
-        currentTTSProcess.kill('SIGTERM')
-        currentTTSProcess = null
-    }
 }
 
 // ─── SW-420 Impact Detection ─────────────────────────────────────────────────
@@ -80,20 +54,15 @@ function startImpactDetection() {
     let lastImpactAt  = 0
 
     vibration.on('alert', (level) => {
-        // Only count rising edges (sensor going HIGH)
         if (level !== 1) return
 
         const now = Date.now()
-
-        // Still in cooldown after last impact — ignore
         if (now - lastImpactAt < IMPACT_COOLDOWN_MS) return
 
-        // Slide the window: keep only recent triggers
         triggerTimes.push(now)
         triggerTimes = triggerTimes.filter(t => now - t <= IMPACT_WINDOW_MS)
 
         if (triggerTimes.length >= IMPACT_THRESHOLD) {
-            // Confirmed impact burst
             lastImpactAt = now
             triggerTimes = []
             handleImpact()
@@ -106,9 +75,31 @@ function startImpactDetection() {
 function handleImpact() {
     console.log('[impact] Impact detected — interrupting speech')
 
-    // Immediately interrupt TTS and say an ouch phrase
     const phrase = IMPACT_PHRASES[Math.floor(Math.random() * IMPACT_PHRASES.length)]
-    speak(phrase)
+
+    // Interrupt current speech
+    if (currentTTSProcess) {
+        currentTTSProcess.kill('SIGTERM')
+        currentTTSProcess = null
+    }
+
+    const clean = stripEmotionTag(phrase)
+
+    isSpeaking = true  
+
+    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
+
+    currentTTSProcess.stderr.on('data', d => console.warn(`[tts] ${d.toString().trim()}`))
+
+    currentTTSProcess.on('close', () => {
+        currentTTSProcess = null
+
+        // ✅ cooldown buffer to prevent mic bleed
+        setTimeout(() => {
+            isSpeaking = false
+            console.log('Listening...\n')
+        }, 400)
+    })
 }
 
 // ─── DHT11 Temperature Polling ───────────────────────────────────────────────
@@ -119,36 +110,32 @@ function startTemperaturePolling() {
         sensor = require('node-dht-sensor')
     } catch (e) {
         console.warn('[temp] node-dht-sensor not available — temperature disabled')
-        console.warn('[temp] Install with: npm install node-dht-sensor')
         return
     }
 
     function poll() {
         try {
-            const result = sensor.read(11, DHT11_PIN) // DHT type 11, BCM pin
+            const result = sensor.read(11, DHT11_PIN)
             if (result.isValid) {
                 const temp     = result.temperature
                 const humidity = result.humidity
                 console.log(`[temp] ${temp.toFixed(1)}°C  ${humidity.toFixed(0)}% RH`)
 
-                // Forward to the PC server so it can colour the LLM prompt
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         type:     'sensor',
                         sensor:   'dht11',
-                        temp:     temp,
-                        humidity: humidity
+                        temp,
+                        humidity
                     }))
                 }
-            } else {
-                console.warn('[temp] DHT11 returned invalid reading — retrying next poll')
             }
         } catch (e) {
             console.warn(`[temp] Read error: ${e.message}`)
         }
     }
 
-    poll() // Read immediately on startup
+    poll()
     setInterval(poll, TEMP_INTERVAL)
 }
 
@@ -162,11 +149,9 @@ ws.on('open', () => {
     console.log(`Connected to ws://${SERVER_IP}:8765\n`)
     console.log('Listening...\n')
 
-    // Start hardware sensors
     startTemperaturePolling()
     startImpactDetection()
 
-    // Start speech recognition
     const pythonScript = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['speech_recognizer.py'])
 
     pythonScript.stdout.on('data', (data) => {
@@ -174,11 +159,21 @@ ws.on('open', () => {
 
         if (text.startsWith('TRANSCRIBED:')) {
             const transcribed = text.replace('TRANSCRIBED:', '').trim()
+
+            if (isSpeaking) {
+                console.log(`[Ignored while speaking]: ${transcribed}`)
+                return
+            }
+
             console.log(`You: ${transcribed}`)
             ws.send(transcribed)
+
         } else if (text.startsWith('PARTIAL:')) {
             const partial = text.replace('PARTIAL:', '').trim()
-            process.stdout.write(`\rListening: ${partial}`)
+
+            if (!isSpeaking) {
+                process.stdout.write(`\rListening: ${partial}`)
+            }
         }
     })
 
@@ -193,17 +188,44 @@ ws.on('open', () => {
 
     process.on('SIGINT', () => {
         console.log('\n\nStopping...')
-        stopSpeech()
+        if (currentTTSProcess) currentTTSProcess.kill()
         pythonScript.kill()
         ws.close()
         process.exit(0)
     })
 })
 
+// ─── Incoming messages (TTS trigger) ─────────────────────────────────────────
+
 ws.on('message', (data) => {
     const response = data.toString()
     console.log(`\n\nAssistant: ${response}\n`)
-    speak(response) // Speaks and strips [EMOTION:...] tag automatically
+
+    const clean = stripEmotionTag(response)
+
+    // Interrupt existing speech
+    if (currentTTSProcess) {
+        currentTTSProcess.kill('SIGTERM')
+        currentTTSProcess = null
+    }
+
+    isSpeaking = true  // ✅ CRITICAL: set BEFORE spawning TTS
+
+    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
+
+    currentTTSProcess.stderr.on('data', (data) => {
+        console.warn(`[tts] ${data.toString().trim()}`)
+    })
+
+    currentTTSProcess.on('close', () => {
+        currentTTSProcess = null
+
+        // ✅ buffer prevents self-hearing
+        setTimeout(() => {
+            isSpeaking = false
+            console.log('Listening...\n')
+        }, 400)
+    })
 })
 
 ws.on('close', () => {
