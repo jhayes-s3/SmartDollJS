@@ -47,7 +47,7 @@ function speak(text) {
     // Interrupt whatever is currently playing
     stopSpeech()
 
-    currentTTSProcess = spawn('python3', ['tts.py', clean])
+    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
     currentTTSProcess.stderr.on('data', d => console.warn(`[tts] ${d.toString().trim()}`))
     currentTTSProcess.on('close', () => { currentTTSProcess = null })
 }
@@ -167,7 +167,7 @@ ws.on('open', () => {
     startImpactDetection()
 
     // Start speech recognition
-    const pythonScript = spawn('python3', ['speech_recognizer.py'])
+    const pythonScript = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['speech_recognizer.py'])
 
     pythonScript.stdout.on('data', (data) => {
         const text = data.toString().trim()
