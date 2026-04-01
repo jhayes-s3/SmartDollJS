@@ -1,12 +1,10 @@
-// client.js
 const WebSocket = require('ws')
 const { spawn } = require('child_process')
 require('dotenv').config()
 
-const SERVER_IP      = process.env.SERVER_IP      || '127.0.0.1'
-const DHT11_PIN      = parseInt(process.env.DHT11_PIN      || '4')
-const SW420_PIN      = parseInt(process.env.SW420_PIN      || '27')
-const TEMP_INTERVAL  = parseInt(process.env.TEMP_INTERVAL  || '30000')
+const SERVER_IP = process.env.SERVER_IP || '127.0.0.1'
+const DHT11_PIN = parseInt(process.env.DHT11_PIN || '4')
+const SW420_PIN = parseInt(process.env.SW420_PIN || '27')
 
 // ─── Impact detection tuning ────────────────────────────────────────────────
 const IMPACT_WINDOW_MS   = 150
@@ -26,12 +24,42 @@ const IMPACT_PHRASES = [
 // ─── State ───────────────────────────────────────────────────────────────────
 let ws = null
 let currentTTSProcess = null
-let isSpeaking = false   
+let isSpeaking = false
+let ttsLock = false   // 🔒 impact priority lock
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function stripEmotionTag(text) {
     return text.replace(/\[EMOTION:[^\]]*\]/gi, '').trim()
+}
+
+function stopTTS() {
+    if (currentTTSProcess) {
+        try {
+            currentTTSProcess.kill('SIGKILL') // 🔥 force kill
+        } catch (e) {}
+        currentTTSProcess = null
+    }
+}
+
+// ─── Temperature (ON-DEMAND) ────────────────────────────────────────────────
+
+function readTemperatureOnce() {
+    try {
+        const sensor = require('node-dht-sensor')
+        const result = sensor.read(11, DHT11_PIN)
+
+        if (result.isValid) {
+            const temp = result.temperature.toFixed(1)
+            const humidity = result.humidity.toFixed(0)
+
+            return `[TEMP: ${temp}C | HUM: ${humidity}%]`
+        }
+    } catch (e) {
+        console.warn('[temp] Read failed:', e.message)
+    }
+
+    return '' // fallback if sensor fails
 }
 
 // ─── SW-420 Impact Detection ─────────────────────────────────────────────────
@@ -50,8 +78,8 @@ function startImpactDetection() {
         alert: true
     })
 
-    let triggerTimes  = []
-    let lastImpactAt  = 0
+    let triggerTimes = []
+    let lastImpactAt = 0
 
     vibration.on('alert', (level) => {
         if (level !== 1) return
@@ -77,66 +105,27 @@ function handleImpact() {
 
     const phrase = IMPACT_PHRASES[Math.floor(Math.random() * IMPACT_PHRASES.length)]
 
-    // Interrupt current speech
-    if (currentTTSProcess) {
-        currentTTSProcess.kill('SIGTERM')
-        currentTTSProcess = null
-    }
+    ttsLock = true
+    stopTTS()
 
     const clean = stripEmotionTag(phrase)
 
-    isSpeaking = true  
+    isSpeaking = true
 
-    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
-
-    currentTTSProcess.stderr.on('data', d => console.warn(`[tts] ${d.toString().trim()}`))
+    currentTTSProcess = spawn(
+        '/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python',
+        ['tts.py', clean]
+    )
 
     currentTTSProcess.on('close', () => {
         currentTTSProcess = null
 
-        // ✅ cooldown buffer to prevent mic bleed
         setTimeout(() => {
             isSpeaking = false
+            ttsLock = false
             console.log('Listening...\n')
-        }, 400)
+        }, 600)
     })
-}
-
-// ─── DHT11 Temperature Polling ───────────────────────────────────────────────
-
-function startTemperaturePolling() {
-    let sensor
-    try {
-        sensor = require('node-dht-sensor')
-    } catch (e) {
-        console.warn('[temp] node-dht-sensor not available — temperature disabled')
-        return
-    }
-
-    function poll() {
-        try {
-            const result = sensor.read(11, DHT11_PIN)
-            if (result.isValid) {
-                const temp     = result.temperature
-                const humidity = result.humidity
-                console.log(`[temp] ${temp.toFixed(1)}°C  ${humidity.toFixed(0)}% RH`)
-
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type:     'sensor',
-                        sensor:   'dht11',
-                        temp,
-                        humidity
-                    }))
-                }
-            }
-        } catch (e) {
-            console.warn(`[temp] Read error: ${e.message}`)
-        }
-    }
-
-    poll()
-    setInterval(poll, TEMP_INTERVAL)
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -149,10 +138,12 @@ ws.on('open', () => {
     console.log(`Connected to ws://${SERVER_IP}:8765\n`)
     console.log('Listening...\n')
 
-    startTemperaturePolling()
     startImpactDetection()
 
-    const pythonScript = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['speech_recognizer.py'])
+    const pythonScript = spawn(
+        '/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python',
+        ['speech_recognizer.py']
+    )
 
     pythonScript.stdout.on('data', (data) => {
         const text = data.toString().trim()
@@ -160,18 +151,22 @@ ws.on('open', () => {
         if (text.startsWith('TRANSCRIBED:')) {
             const transcribed = text.replace('TRANSCRIBED:', '').trim()
 
-            if (isSpeaking) {
+            if (isSpeaking || ttsLock) {
                 console.log(`[Ignored while speaking]: ${transcribed}`)
                 return
             }
 
-            console.log(`You: ${transcribed}`)
-            ws.send(transcribed)
+            // Inject temperature HERE
+            const tempTag = readTemperatureOnce()
+            const enriched = `${tempTag} ${transcribed}`.trim()
+
+            console.log(`You: ${enriched}`)
+            ws.send(enriched)
 
         } else if (text.startsWith('PARTIAL:')) {
             const partial = text.replace('PARTIAL:', '').trim()
 
-            if (!isSpeaking) {
+            if (!isSpeaking && !ttsLock) {
                 process.stdout.write(`\rListening: ${partial}`)
             }
         }
@@ -188,7 +183,7 @@ ws.on('open', () => {
 
     process.on('SIGINT', () => {
         console.log('\n\nStopping...')
-        if (currentTTSProcess) currentTTSProcess.kill()
+        stopTTS()
         pythonScript.kill()
         ws.close()
         process.exit(0)
@@ -198,29 +193,39 @@ ws.on('open', () => {
 // ─── Incoming messages (TTS trigger) ─────────────────────────────────────────
 
 ws.on('message', (data) => {
-    const response = data.toString()
+    let msg
+
+    try {
+        msg = JSON.parse(data)
+    } catch {
+        msg = { type: 'text', content: data.toString() }
+    }
+
+    if (msg.type !== 'text') return
+
+    if (ttsLock) {
+        console.log('[ws] Ignored due to impact priority')
+        return
+    }
+
+    const response = msg.content
+
     console.log(`\n\nAssistant: ${response}\n`)
 
     const clean = stripEmotionTag(response)
 
-    // Interrupt existing speech
-    if (currentTTSProcess) {
-        currentTTSProcess.kill('SIGTERM')
-        currentTTSProcess = null
-    }
+    stopTTS()
 
-    isSpeaking = true  // ✅ CRITICAL: set BEFORE spawning TTS
+    isSpeaking = true
 
-    currentTTSProcess = spawn('/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python', ['tts.py', clean])
-
-    currentTTSProcess.stderr.on('data', (data) => {
-        console.warn(`[tts] ${data.toString().trim()}`)
-    })
+    currentTTSProcess = spawn(
+        '/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python',
+        ['tts.py', clean]
+    )
 
     currentTTSProcess.on('close', () => {
         currentTTSProcess = null
 
-        // ✅ buffer prevents self-hearing
         setTimeout(() => {
             isSpeaking = false
             console.log('Listening...\n')
