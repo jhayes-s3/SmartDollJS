@@ -36,12 +36,10 @@ function stripEmotionTag(text) {
 function stopTTS() {
     if (currentTTSProcess) {
         try {
-            currentTTSProcess.kill('SIGKILL') // 🔥 force kill
+            currentTTSProcess.kill('SIGTERM') // lets Python clean up children
             console.log('STATUS: TTS Killed')
         } catch (e) {}
         currentTTSProcess = null
-    } else {
-        console.log('ERROR: No currentTTSProcess found to kill!')
     }
 }
 
