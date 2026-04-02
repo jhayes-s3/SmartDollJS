@@ -148,5 +148,6 @@ module.exports = {
     getEmotionalContext,
     getEmotionInstructions,
     getEmotionScores,
-    setEmotionScores
+    setEmotionScores,
+    updateEmotionScores
 }

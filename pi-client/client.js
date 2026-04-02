@@ -26,7 +26,8 @@ const IMPACT_PHRASES = [
 let ws = null
 let currentTTSProcess = null
 let isSpeaking = false
-let ttsLock = false   // 🔒 impact priority lock
+let ttsLock = false   //  impact priority lock
+let impactLockTimeout = null 
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -108,23 +109,27 @@ function handleImpact() {
     ttsLock = true
     stopTTS()
 
-    const clean = stripEmotionTag(phrase)
-
     isSpeaking = true
 
     currentTTSProcess = spawn(
         '/home/james/Desktop/SmartDollJS/pi-client/venv/bin/python',
-        ['tts.py', clean]
+        ['tts.py', phrase]
     )
 
     currentTTSProcess.on('close', () => {
         currentTTSProcess = null
 
-        setTimeout(() => {
+        // Notify server about the impact — triggers memory + emotion + optional LLM response
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'impact', phrase }))
+        }
+
+        // Hold the lock until server responds (or timeout after 10s as safety)
+        impactLockTimeout = setTimeout(() => {
             isSpeaking = false
             ttsLock = false
             console.log('Listening...\n')
-        }, 600)
+        }, 10000)
     })
 }
 
@@ -203,19 +208,27 @@ ws.on('message', (data) => {
 
     if (msg.type !== 'text') return
 
-    if (ttsLock) {
+    // For impact responses, we allow through even during ttsLock
+    // since this IS the impact resolution
+    const isImpactResponse = msg.isImpactResponse === true
+
+    if (ttsLock && !isImpactResponse) {
         console.log('[ws] Ignored due to impact priority')
         return
     }
 
-    const response = msg.content
+    // Cancel the impact safety timeout since we got a response
+    if (isImpactResponse && impactLockTimeout) {
+        clearTimeout(impactLockTimeout)
+        impactLockTimeout = null
+    }
 
+    const response = msg.content
     console.log(`\n\nAssistant: ${response}\n`)
 
     const clean = stripEmotionTag(response)
 
     stopTTS()
-
     isSpeaking = true
 
     currentTTSProcess = spawn(
@@ -225,9 +238,9 @@ ws.on('message', (data) => {
 
     currentTTSProcess.on('close', () => {
         currentTTSProcess = null
-
         setTimeout(() => {
             isSpeaking = false
+            ttsLock = false
             console.log('Listening...\n')
         }, 400)
     })
