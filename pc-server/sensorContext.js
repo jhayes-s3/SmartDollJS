@@ -10,9 +10,7 @@ let currentHumidity = null
 function setTemperature(temp, humidity) {
     currentTemp = temp
     currentHumidity = humidity
-    console.log(
-        `[sensor] Temp: ${temp.toFixed(1)}°C  Humidity: ${humidity.toFixed(0)}%`
-    )
+    console.log(`[sensor] Temp: ${temp.toFixed(1)}°C`)
 }
 
 function getTemperatureContext() {

@@ -43,7 +43,6 @@ function buildSystemPrompt() {
 
     const tempContext = getTemperatureContext()
     if (tempContext) parts.push(tempContext)
-    console.log(tempContext)
 
     parts.push(getEmotionInstructions())
     parts.push(getEmotionalContext())

@@ -68,7 +68,7 @@ function saveMemory() {
                 2
             )
         )
-        console.log('STATUS: Memory saved')
+        // console.log('STATUS: Memory saved')
         return { success: true }
     } catch (error) {
         console.error('Error saving memory:', error.message)
