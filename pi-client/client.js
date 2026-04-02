@@ -2,7 +2,7 @@ const WebSocket = require('ws')
 const { spawn } = require('child_process')
 require('dotenv').config()
 
-const SERVER_IP = process.env.SERVER_IP || '127.0.0.1'
+const SERVER_IP  = '192.168.4.72'
 const DHT11_PIN = parseInt(process.env.DHT11_PIN || '4')
 const SW420_PIN = parseInt(process.env.SW420_PIN || '27')
 
@@ -37,8 +37,11 @@ function stopTTS() {
     if (currentTTSProcess) {
         try {
             currentTTSProcess.kill('SIGKILL') // 🔥 force kill
+            console.log('STATUS: TTS Killed')
         } catch (e) {}
         currentTTSProcess = null
+    } else {
+        console.log('ERROR: No currentTTSProcess found to kill!')
     }
 }
 
@@ -51,9 +54,8 @@ function readTemperatureOnce() {
 
         if (result.isValid) {
             const temp = result.temperature.toFixed(1)
-            const humidity = result.humidity.toFixed(0)
 
-            return `[TEMP: ${temp}C | HUM: ${humidity}%]`
+            return `[TEMP: ${temp}C]`
         }
     } catch (e) {
         console.warn('[temp] Read failed:', e.message)
