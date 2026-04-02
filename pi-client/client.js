@@ -31,8 +31,7 @@ let ttsLock = false   // 🔒 impact priority lock
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function stripEmotionTag(text) {
-    return text.replace(/\[EMOTION:[^\]]*\]/gi, '').trim()
-}
+    return text.replace(/\[(?:EMOTION:)?(\w+):(\d+\.?\d*)\]/gi, '').trim()}
 
 function stopTTS() {
     if (currentTTSProcess) {

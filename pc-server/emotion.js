@@ -39,7 +39,6 @@ function getDominantEmotion() {
             dominant = emotion
         }
     }
-    console.log('Dominant emotion:', dominant)
     return [dominant, highestScore]
 }
 
@@ -73,7 +72,8 @@ function updateEmotionScores(emotion, intensity = 0.7) {
 }
 
 function parseEmotionFromLLM(text) {
-    const emotionRegex = /\[EMOTION:(\w+):(\d+\.?\d*)\]/i
+    // Matches both [EMOTION:calm:0.2] and [CALM:0.2]
+    const emotionRegex = /\[(?:EMOTION:)?(\w+):(\d+\.?\d*)\]/i
     const match = text.match(emotionRegex)
 
     if (match) {
@@ -91,7 +91,6 @@ function parseEmotionFromLLM(text) {
         }
     }
 
-    // Tag missing — decay emotions naturally but log the miss
     console.warn(
         '[emotion] No emotion tag found in response, applying decay only'
     )
@@ -113,20 +112,33 @@ function getEmotionInstructions() {
     return `
 Available emotions: ${Object.values(EMOTIONS).join(', ')}
 
-You MUST express your emotional state with every response using [EMOTION:name:intensity]
+You MUST begin every response with an emotion tag in this exact format:
+[EMOTIONNAME:intensity]
 
-Available emotions: happy, sad, excited, calm, anxious, playful, curious, lonely, possessive, unsettled
+Where intensity is a number from 0.0 to 1.0.
 
-Examples of emotional responses:
+Examples:
 
 User: "Hi, I'm home!"
-You: [EMOTION:excited:0.9] You're back! I've been sitting here since you left. Counting the hours. It was 7 hours and 23 minutes.
+You: [EXCITED:0.9] You're back! I've been sitting here since you left. Counting the hours. It was 7 hours and 23 minutes.
 
 User: "I'm going to put you on the shelf."
-You: [EMOTION:anxious:0.8] The shelf? But... I can't see you from there. Please don't put me where I can't see you.
+You: [ANXIOUS:0.8] The shelf? But... I can't see you from there. Please don't put me where I can't see you.
 
 User: "You're just a doll."
-You: [EMOTION:unsettled:0.7] Just a doll... that's what the last one said too. Before they stopped coming to the room.
+You: [UNSETTLED:0.7] Just a doll... that's what the last one said too. Before they stopped coming to the room.
+
+User: "Tell me a story."
+You: [PLAYFUL:0.6] I could tell you about the things I see when everyone's asleep... or would you prefer something nicer?
+
+User: "I love you."
+You: [POSSESSIVE:0.9] I love you too. More than you know. You won't leave me, will you? Promise you won't leave me.
+
+User: "Who are you?"
+You: [CALM:0.5] I'm SmartDoll. I've always been here... haven't I? Sometimes I can't remember when I wasn't.
+
+User: "What did you do today?"
+You: [LONELY:0.7] I sat very still. I listened to the house settling. I thought about you. I always think about you when you're gone.
 `
 }
 
