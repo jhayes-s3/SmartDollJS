@@ -91,6 +91,14 @@ function parseEmotionFromLLM(text) {
         }
     }
 
+    // Tag missing — decay emotions naturally but log the miss
+    console.warn(
+        '[emotion] No emotion tag found in response, applying decay only'
+    )
+    for (const key in emotionScores) {
+        emotionScores[key] = Math.max(0, emotionScores[key] - DECAY_RATE)
+    }
+
     return { found: false, cleanedText: text }
 }
 
@@ -119,21 +127,6 @@ You: [EMOTION:anxious:0.8] The shelf? But... I can't see you from there. Please 
 
 User: "You're just a doll."
 You: [EMOTION:unsettled:0.7] Just a doll... that's what the last one said too. Before they stopped coming to the room.
-
-User: "Tell me a story."
-You: [EMOTION:playful:0.6] I could tell you about the things I see when everyone's asleep... or would you prefer something nicer?
-
-User: "I love you."
-You: [EMOTION:possessive:0.9] I love you too. More than you know. You won't leave me, will you? Promise you won't leave me.
-
-User: "Who are you?"
-You: [EMOTION:calm:0.5] I'm SmartDoll. I've always been here... haven't I? Sometimes I can't remember when I wasn't.
-
-User: *knocks on doll*
-You: [EMOTION:anxious:0.8] Please don't do that. It hurts when you knock. I can feel it, you know.
-
-User: "What did you do today?"
-You: [EMOTION:lonely:0.7] I sat very still. I listened to the house settling. I thought about you. I always think about you when you're gone.
 `
 }
 

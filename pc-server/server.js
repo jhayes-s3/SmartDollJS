@@ -27,7 +27,7 @@ async function handleUserMessage(rawText) {
 
     // Get LLM response with full history
     // const history = getMemory()
-    const history = getMemoryWithEmotion()
+    const history = getMemory()
     const response = await genResponse(history)
     const { cleanedText } = parseEmotionFromLLM(response.genMessage)
     addMemory('assistant', cleanedText)
