@@ -5,11 +5,23 @@ const { loadMemory, saveMemory, addMemory, getMemory } = require('./memory.js')
 const { genResponse } = require('./llm.js')
 const { getMemoryWithEmotion } = require('./memory')
 const { parseEmotionFromLLM } = require('./emotion')
+const { setTemperature, getTemperatureContext } = require('./sensorContext')
 
 const PORT = 8765
 const LM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions'
 
-async function handleUserMessage(text) {
+function extractTempFromMessage(text) {
+    const match = text.match(/\[TEMP:\s*([\d.]+)C\]/i)
+    if (match) {
+        const temp = parseFloat(match[1])
+        setTemperature(temp, 0) // humidity not sent from Pi currently
+        return text.replace(match[0], '').trim() // strip tag from user-visible text
+    }
+    return text
+}
+
+async function handleUserMessage(rawText) {
+    const text = extractTempFromMessage(rawText)
     // Add user message to history
     addMemory('user', text)
 
