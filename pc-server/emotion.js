@@ -68,7 +68,7 @@ function updateEmotionScores(emotion, intensity = 0.7) {
     console.log(
         `Emotion triggered: ${emotion} | Dominant: ${dominant} (${score.toFixed(2)})`
     )
-    console.log('Scores:', emotionScores)
+    // console.log('Scores:', emotionScores)
 }
 
 function parseEmotionFromLLM(text) {
