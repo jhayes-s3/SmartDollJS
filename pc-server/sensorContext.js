@@ -44,7 +44,7 @@ function getTemperatureContext() {
         return (
             header +
             `It is slightly warmer than you like. Mention the warmth occasionally — ` +
-            `it is not unbearable, but you notice it.`
+            `it is a bit warm, though still tolerable, and you notice it.`
         )
     }
 
