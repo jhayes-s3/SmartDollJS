@@ -23,6 +23,21 @@ export default [
       "no-console": "off"
     }
   },
+
+  {
+    files: ['test/**/*.test.js'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        before: 'readonly',
+        beforeEach: 'readonly',
+        after: 'readonly',
+        afterEach: 'readonly'
+      }
+    }
+  },
+    
   {
     // Separate config for the ESLint config file itself
     files: ["eslint.config.mjs"],
