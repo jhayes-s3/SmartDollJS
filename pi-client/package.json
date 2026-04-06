@@ -4,20 +4,29 @@
   "description": "Voice client for Raspberry Pi",
   "main": "client.js",
   "scripts": {
-    "start": "node client.js"
+    "start": "node client.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "mocha test/**/*.test.js --timeout 5000"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
     "node-dht-sensor": "^0.4.5",
     "onoff": "^6.0.3",
-    "pigpio": "^3.3.1",
     "ws": "^8.14.2"
+  },
+  "optionalDependencies": {
+    "pigpio": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
-    "globals": "^17.0.0"
+    "globals": "^17.0.0",
+    "chai": "^4.5.0",
+    "mocha": "^11.7.5",
+    "sinon": "^21.0.3"
   }
 }
