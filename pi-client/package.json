@@ -17,7 +17,8 @@
     "ws": "^8.14.2"
   },
   "optionalDependencies": {
-    "pigpio": "^3.3.1"
+    "pigpio": "^3.3.1",
+    "node-dht-sensor": "^0.4.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
