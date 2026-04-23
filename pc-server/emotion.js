@@ -12,6 +12,8 @@ const EMOTIONS = {
     ANGRY: 'angry'
 }
 
+const { DECAY_RATE } = require('./config')
+
 // Each emotion has a score from 0-1 that builds up over time
 let emotionScores = {
     happy: 0,
@@ -26,8 +28,6 @@ let emotionScores = {
     unsettled: 0,
     angry: 0
 }
-
-const DECAY_RATE = 0.05 // how much all scores decay each turn toward 0
 
 function getDominantEmotion() {
     let dominant

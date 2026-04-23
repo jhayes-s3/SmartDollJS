@@ -2,25 +2,16 @@
 const WebSocket = require('ws')
 const { spawn } = require('child_process')
 require('dotenv').config()
+const {
+    IMPACT_WINDOW_MS,
+    IMPACT_THRESHOLD,
+    IMPACT_COOLDOWN_MS,
+    IMPACT_PHRASES
+} = require('./config')
 
 const SERVER_IP  = '192.168.4.72'
 const DHT11_PIN = parseInt(process.env.DHT11_PIN || '4')
 const SW420_PIN = parseInt(process.env.SW420_PIN || '27')
-
-// ─── Impact detection tuning ────────────────────────────────────────────────
-const IMPACT_WINDOW_MS   = 150
-const IMPACT_THRESHOLD   = 5
-const IMPACT_COOLDOWN_MS = 6000
-
-const IMPACT_PHRASES = [
-    'Ow...',
-    'That hurt...',
-    'Please... be careful...',
-    'I felt that...',
-    "Don't do that...",
-    'Ow... why...',
-    'You hurt me...',
-]
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let ws = null

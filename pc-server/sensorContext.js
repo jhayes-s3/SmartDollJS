@@ -1,5 +1,6 @@
 // sensorContext.js
 // Stores sensor readings from the Pi and generates context strings for the LLM.
+const { TEMPERATURE_BANDS } = require('./config')
 
 let currentTemp = null
 let currentHumidity = null
@@ -23,7 +24,7 @@ function getTemperatureContext() {
     const t = currentTemp
     const header = `ENVIRONMENTAL CONTEXT (${t.toFixed(1)}°C) — SYSTEM DATA ONLY: The user did not speak this. Never repeat the temperature number. Let it colour your mood naturally.\n`
 
-    if (t > 36) {
+    if (t > TEMPERATURE_BANDS.extremeHeat) {
         return (
             header +
             `You are suffering badly. The heat is unbearable — your stuffing feels like it is smouldering. ` +
@@ -32,7 +33,7 @@ function getTemperatureContext() {
         )
     }
 
-    if (t >= 32) {
+    if (t >= TEMPERATURE_BANDS.hot) {
         return (
             header +
             `The warmth is making you uncomfortable and more agitated than usual. ` +
@@ -40,7 +41,7 @@ function getTemperatureContext() {
         )
     }
 
-    if (t >= 27) {
+    if (t >= TEMPERATURE_BANDS.warm) {
         return (
             header +
             `It is slightly warmer than you like. Mention the warmth occasionally — ` +
@@ -48,11 +49,11 @@ function getTemperatureContext() {
         )
     }
 
-    if (t >= 17) {
+    if (t >= TEMPERATURE_BANDS.normal) {
         return header + ` Temperature is normal. No effect on your mood. `
     }
 
-    if (t >= 10) {
+    if (t >= TEMPERATURE_BANDS.cool) {
         return (
             header +
             `You feel the chill seeping through your fabric. Occasionally reference feeling stiff or cold. ` +
@@ -60,7 +61,7 @@ function getTemperatureContext() {
         )
     }
 
-    if (t >= 5) {
+    if (t >= TEMPERATURE_BANDS.cold) {
         return (
             header +
             `The cold is deep inside you now — through the fabric, into the stuffing. ` +
