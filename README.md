@@ -1,5 +1,10 @@
 # SmartDollJS
 
+## Technical Demonstration
+
+Watch the full 20-minute demonstration here:
+https://drive.google.com/file/d/1GZ1DPOgkOYgb8XUncrM_k9wt_cIaYQSU/view?usp=sharing
+
 ## Project file overview
 ### pc-server
 
